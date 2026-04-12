@@ -1,0 +1,44 @@
+# 排除不需要检查的目录，比如第三方库
+excluded:
+  - Pods
+  - DerivedData
+  - .build
+# 启动的规则（默认之外额外开启）
+opt_in_rules:
+  - empty_count           # 强制使用.isEmpty而不是.count==0
+  - force_unwrapping      # 避免强制解包
+# 自定义规则
+line_length: 160          # 单行限制120字符
+function_body_length: 50  # 函数体不超过150行
+file_length:
+  warning: 500 # 默认400
+  error: 1000
+# 以下变量忽略3-50字的要求
+identifier_name:
+  excluded:
+    - x
+    - y
+    - i
+    - s
+    - id
+    - dx
+    - dy
+    - xs
+    - ys
+    - cx
+    - cy
+    - ox
+    - oy
+    - vm
+    - ux
+    - uy
+    - to
+    - r
+    - g
+    - b
+    - a
+
+# 规则开关
+disabled_rules:
+  - trailing_whitespace   # 允许行尾空格
+  - todo

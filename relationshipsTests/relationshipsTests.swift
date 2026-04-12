@@ -8,7 +8,7 @@
 import Testing
 @testable import relationships
 
-struct relationshipsTests {
+struct RelationshipsTests {
 
     @Test func example() async throws {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.

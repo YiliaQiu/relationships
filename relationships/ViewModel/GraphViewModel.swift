@@ -9,6 +9,13 @@ import Foundation
 import SwiftUI
 import Combine
 
+struct ArrowGeometry {
+    let tip: CGPoint   // 箭头的尖端
+    let tail: CGPoint  // 箭头的尾端（或者是连接的目标点）
+    let left: CGPoint  // 箭头左翼
+    let right: CGPoint // 箭头右翼
+}
+
 class GraphViewModel: ObservableObject, Codable {
     private let saveKey = "GraphData"
     @Published var nodes: [NodeModel] = []
@@ -25,9 +32,9 @@ class GraphViewModel: ObservableObject, Codable {
         self.isConnectingMode = false
         load()
         if nodes.isEmpty {
-            let nodeA = NodeModel(title: "A", position: .init(x:100, y: 120))
-            let nodeB = NodeModel(title: "B", position: .init(x:260, y: 280))
-            let nodeC = NodeModel(title: "C", position: .init(x:100, y: 400))
+            let nodeA = NodeModel(title: "A", position: .init(x: 100, y: 120))
+            let nodeB = NodeModel(title: "B", position: .init(x: 260, y: 280))
+            let nodeC = NodeModel(title: "C", position: .init(x: 100, y: 400))
             nodes.append(nodeA)
             nodes.append(nodeB)
             nodes.append(nodeC)
@@ -130,7 +137,7 @@ class GraphViewModel: ObservableObject, Codable {
         )
     }
     
-    func getArrowPoints(from fromId: UUID, to toId: UUID, arrowLength: CGFloat = 15) ->(tail: CGPoint, tip: CGPoint, left: CGPoint, right: CGPoint)? {
+    func getArrowPoints(from fromId: UUID, to toId: UUID, arrowLength: CGFloat = 15) -> ArrowGeometry? {
         guard let (from, to) = getConnectionPoints(from: fromId, to: toId) else {
             return nil
         }
@@ -158,7 +165,7 @@ class GraphViewModel: ObservableObject, Codable {
             x: tip.x - arrowLength * (ux * cos(-angle) + uy * sin(-angle)),
             y: tip.y - arrowLength * (uy * cos(-angle) - ux * sin(-angle))
         )
-        return (tip, to, left, right)
+        return ArrowGeometry(tip: tip, tail: to, left: left, right: right)
     }
     
     func save() {

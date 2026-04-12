@@ -8,13 +8,12 @@
 import SwiftUI
 import UIKit
 
-struct CanvasTransform{
+struct CanvasTransform {
      var scale: CGFloat = 1.0
      var offset: CGSize = .zero
      var lastScale: CGFloat = 1.0
      var lastOffset: CGSize = .zero
 }
-
 
 struct RelationshipGraphView: View {
 //    @StateObject private var vm = GraphViewModel()
@@ -123,7 +122,7 @@ struct RelationshipGraphView: View {
         }
     }
     private var nodeList: some View {
-        ForEach ($vm.nodes, id: \.id) { $node in
+        ForEach($vm.nodes, id: \.id) { $node in
             NodeView(
                 node: $node,
                 onTapNode: {
@@ -154,19 +153,23 @@ struct RelationshipGraphView: View {
     
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Button(action: { vm.addNode() }) {
+            Button {
+                vm.addNode()
+            } label: {
                 Image(systemName: "plus")
                     .font(.title)
                     .foregroundColor(.blue)
             }
-            Button(action: {
+            Button {
                 vm.isConnectingMode.toggle()
                 vm.firstSelectedNodeID = nil
-            }) {
+            } label: {
                 Text(vm.isConnectingMode ? "退出连线" : "连线")
                     .foregroundColor(vm.isConnectingMode ? .red : .blue)
             }
-            Button(action: fitToScreen) {
+            Button {
+                fitToScreen()
+            } label: {
                 Image(systemName: "viewfinder")
                     .font(.title)
                     .foregroundColor(.blue)
@@ -297,8 +300,7 @@ struct GlobalAlerts: ViewModifier {
             }
             .sheet(isPresented: $showColorPicker) {
                 if let id = selectedNodeID,
-                   let index = vm.nodes.firstIndex(where: { $0.id == id })
-                {
+                   let index = vm.nodes.firstIndex(where: { $0.id == id }) {
                     SystemColorPicker(selectedColor: $vm.nodes[index].color)
                         .presentationDetents([.medium])
                         .presentationBackground(.white)
@@ -338,7 +340,11 @@ struct NodeView: View {
         .position(node.position)
         .onTapGesture {
             print("qbq点击了节点, 是否为连线模式：", isConnectingMode)
-            isConnectingMode ? onTapForConnect() : onTapNode()
+            if isConnectingMode {
+                onTapForConnect()
+            } else {
+                onTapNode()
+            }
         }
         .highPriorityGesture(
             DragGesture(minimumDistance: 5)
@@ -443,7 +449,6 @@ struct SystemColorPicker: UIViewControllerRepresentable {
     }
 }
 
-
-//#Preview {
+// #Preview {
 //    RelationshipGraphView()
-//}
+// }

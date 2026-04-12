@@ -9,11 +9,10 @@ import SwiftUI
 import SwiftData
 
 @main
-struct relationshipsApp: App {
+struct RelationshipsApp: App {
 
     var body: some Scene {
         WindowGroup {
-//            RelationshipGraphView()
             ContentView()
         }
     }

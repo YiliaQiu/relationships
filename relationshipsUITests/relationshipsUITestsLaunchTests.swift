@@ -7,9 +7,9 @@
 
 import XCTest
 
-final class relationshipsUITestsLaunchTests: XCTestCase {
+final class RelationshipsUITestsLaunchTests: XCTestCase {
 
-    override class var runsForEachTargetApplicationUIConfiguration: Bool {
+    override static var runsForEachTargetApplicationUIConfiguration: Bool {
         true
     }
 

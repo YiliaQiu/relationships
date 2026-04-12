@@ -23,7 +23,6 @@ struct NodeModel: Identifiable, Equatable, Codable {
        let alpha: Double
    }
 
-
     init(id: UUID = UUID(), title: String, position: CGPoint, color: Color = .green) {
         self.id = id
         self.title = title

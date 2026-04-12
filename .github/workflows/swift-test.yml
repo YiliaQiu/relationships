@@ -1,0 +1,109 @@
+name: relationships Swift Test CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: macos-15
+    steps:
+      # 下载代码
+      - name: Checkout code
+        uses: actions/checkout@v6
+      # 检查规范
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Run SwiftLint
+        run: swiftlint lint
+
+      - name: 自动定位项目、创建模拟器并运行测试
+        run: |
+          # 1. 自动定位项目
+          REAL_PATH=$(find . -name "relationships.xcodeproj" | head -n 1)
+          if [ -z "$REAL_PATH" ]; then
+            echo "错误：找不到项目文件！"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$REAL_PATH")
+          PROJECT_FILE=$(basename "$REAL_PATH")
+          
+          RESULT_PATH="${{ github.workspace }}/TestResults.xcresult"
+          rm -rf "$RESULT_PATH"
+
+          cd "$PROJECT_DIR"
+          echo "当前工作目录: $(pwd)"
+
+          #  运行测试(增加并行和路径优化)
+          xcodebuild test \
+            -project "$PROJECT_FILE" \
+            -scheme "relationships" \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -derivedDataPath Build/ \
+            -resultBundlePath "$RESULT_PATH" \
+            -parallel-testing-enabled=NO \
+            -retry-tests-on-failure-count=3 \
+            IPHONEOS_DEPLOYMENT_TARGET=17.0
+          # 等待 5 秒，确保磁盘写入完成
+          sleep 5
+      - name: 生成网页版测试报告摘要
+        if: always()
+        run: |
+          RESULT_PATH="${{ github.workspace }}/TestResults.xcresult"
+          
+          if [ -d "$RESULT_PATH" ]; then
+            # 1. 获取 JSON 原始数据
+            xcrun xcresulttool get object --legacy --path "$RESULT_PATH" --format json > summary.json
+            
+            # 2. 用 Python 直接提取并写入 Summary (不经过中间变量)
+            python3 -c "
+            import json, os
+            try:
+                with open('summary.json', 'r') as f:
+                    data = json.load(f)
+                
+                # 提取 metrics 节点数据
+                metrics = data.get('metrics', {})
+                total = int(metrics.get('testsCount', {}).get('_value', 0))
+                failed = int(metrics.get('errorCount', {}).get('_value', 0))
+                passed = total - failed
+                
+                # 直接写入 GitHub Summary 文件
+                summary_file = os.environ.get('GITHUB_STEP_SUMMARY')
+                with open(summary_file, 'a') as f_out:
+                    f_out.write('## 🍏 Xcode 测试运行报告\n')
+                    f_out.write('| 状态 | 计数 |\n')
+                    f_out.write('| :--- | :--- |\n')
+                    f_out.write(f'| ✅ **Passed** | {passed} |\n')
+                    f_out.write(f'| ❌ **Failed** | {failed} |\n')
+                    f_out.write(f'| 📊 **Total** | {total} |\n\n')
+                    f_out.write('> 💡 **详细报告**: 已上传至 Artifacts。解压后确保文件夹名为 `TestResults.xcresult` 即可双击打开。')
+                print(f'Successfully wrote summary: {passed}/{total}')
+            except Exception as e:
+                with open(os.environ.get('GITHUB_STEP_SUMMARY'), 'a') as f_out:
+                    f_out.write(f'### ❌ 摘要解析失败\n解析错误: {e}')
+            "
+          else
+            echo "## ❌ 错误" >> $GITHUB_STEP_SUMMARY
+            echo "未找到测试结果文件夹" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+      - name: 辅助摘要信息 (保留你的提示逻辑)
+        if: always()
+        run: |
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "### 原始报告下载" >> $GITHUB_STEP_SUMMARY
+          echo "如果需要查看详细截图或性能分析，请在下方 Artifacts 下载 **Test-Results-Bundle**。" >> $GITHUB_STEP_SUMMARY
+          echo "下载后解压，确保文件夹名为 \`TestResults.xcresult\` 即可双击在 Xcode 中打开。" >> $GITHUB_STEP_SUMMARY
+          
+      - name: 上传原始测试产物
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test-Results-Bundle
+          path: ${{ github.workspace }}/TestResults.xcresult

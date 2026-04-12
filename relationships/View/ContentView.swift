@@ -36,8 +36,6 @@ struct GraphItem: Identifiable {
     let category: GraphCategory
 }
 
-
-
 // mainView
 struct ContentView: View {
     // 示例列表数据
@@ -49,8 +47,8 @@ struct ContentView: View {
     ]
     
     // 筛选类别
-    @State private var selectedFilter: GraphCategory? = nil
-    @State private var filterCategory: GraphCategory? = nil
+    @State private var selectedFilter: GraphCategory?
+    @State private var filterCategory: GraphCategory?
     
     // 跟随系统/白天模式/夜间模式
     @AppStorage("appearanceSelection") private var appearanceSelection = 0
@@ -65,13 +63,19 @@ struct ContentView: View {
     }
     var appearancePicker: some View {
         Menu {
-            Button(action: { appearanceSelection = 1 }) {
+            Button {
+                appearanceSelection = 1
+            } label: {
                 Label("浅色模式", systemImage: "sun.max")
             }
-            Button(action: { appearanceSelection = 2 }) {
+            Button {
+                appearanceSelection = 2
+            } label: {
                 Label("深色模式", systemImage: "moon")
             }
-            Button(action: { appearanceSelection = 0 }) {
+            Button {
+                appearanceSelection = 0
+            } label: {
                 Label("跟随系统", systemImage: "desktopcomputer")
             }
         } label: {
@@ -204,7 +208,7 @@ struct ContentView: View {
                     RelationshipGraphView(vm: GraphViewModel())
                         .navigationTitle(graph.title)
                         .navigationBarTitleDisplayMode(.inline)
-                } label : {
+                } label: {
                     HStack(spacing: 15) {
                         // 左侧分类色块
                         RoundedRectangle(cornerRadius: 4)
