@@ -16,30 +16,34 @@ struct CanvasTransform {
 }
 
 struct RelationshipGraphView: View {
-//    @StateObject private var vm = GraphViewModel()
+    //    @StateObject private var vm = GraphViewModel()
     @ObservedObject var vm: GraphViewModel
     
     @State private var selectedNodeID: UUID?
     @State private var showNodeMenu = false
     @State private var selectedEdgeID: UUID?
     @State private var showEdgeMenu = false
-
+    
     @State private var showEditName = false
     @State private var editedName = ""
     @State private var showColorPicker = false
     @State private var showDeleteConfirm = false
-
+    
     @State private var showEditEdgeLabel = false
     @State private var editedEdgeLabel = ""
-
+    
     @State private var canvas = CanvasTransform()
-
+    
     @State private var lastDragTime: Date = .distantPast
     private let dragThrottle: TimeInterval = 1 / 60
-
+    
     var body: some View {
         NavigationStack {
-            mainCanvas
+            GeometryReader { geometry in
+                mainCanvas(size: geometry.size, proxy: geometry).onAppear {
+                    fitToScreen(size: geometry.size, proxy: geometry)
+                }
+            }
         }
         .modifier(GlobalAlerts(
             showEditName: $showEditName, editedName: $editedName,
@@ -51,7 +55,7 @@ struct RelationshipGraphView: View {
         ))
     }
 
-    private var mainCanvas: some View {
+    private func mainCanvas(size: CGSize, proxy: GeometryProxy) -> some View {
         ZStack {
             Color.clear
                 .contentShape(Rectangle())
@@ -60,11 +64,22 @@ struct RelationshipGraphView: View {
                     MagnificationGesture()
                         .onChanged { value in
                             withTransaction(.init(animation: nil)) {
-                                canvas.scale = canvas.lastScale * value
+                                let newScale = canvas.lastScale * value // 当前缩放比例
+                                let zoomFactor = newScale / canvas.scale // 获取缩放变化率
+                                
+                                // "中心补偿": 缩放向中间收拢
+                                let centerX = size.width / 2
+                                let centerY = size.height / 2
+                                
+                                canvas.offset.width -= (zoomFactor - 1) * (centerX - canvas.offset.width)
+                                canvas.offset.height -= (zoomFactor - 1) * (centerY - canvas.offset.height)
+                                
+                                canvas.scale = newScale
                             }
                         }
                         .onEnded { _ in
                             canvas.lastScale = canvas.scale
+                            canvas.lastOffset = canvas.offset // 缩放过程offset变了，同步更新
                         }
                     // 单指拖拽：空白区域拖动页面
                         .simultaneously(with: DragGesture(minimumDistance: 2)
@@ -82,11 +97,6 @@ struct RelationshipGraphView: View {
                         )
                 )
             graphCanvas
-                .transformEffect(
-                    CGAffineTransform(scaleX: canvas.scale, y: canvas.scale)
-                        .translatedBy(x: canvas.offset.width, y: canvas.offset.height)
-                )
-                .drawingGroup()
         }
         .modifier(NodeEdgeDialogs(
             showNodeMenu: $showNodeMenu, showEdgeMenu: $showEdgeMenu,
@@ -96,7 +106,9 @@ struct RelationshipGraphView: View {
             selectedEdgeID: $selectedEdgeID,
             showEditEdgeLabel: $showEditEdgeLabel, editedEdgeLabel: $editedEdgeLabel
         ))
-        .toolbar { toolbarContent }
+        .toolbar {
+            toolbarContent(size: size, proxy: proxy)
+        }
         .background(Color(.systemBackground))
         .ignoresSafeArea()
     }
@@ -106,6 +118,10 @@ struct RelationshipGraphView: View {
             edgeList
             nodeList
         }
+        // 先缩放，并指定从左上角缩放
+        .scaleEffect(canvas.scale, anchor: .topLeading)
+        .offset(x: canvas.offset.width, y: canvas.offset.height)
+        .drawingGroup()
     }
     
     private var edgeList: some View {
@@ -151,7 +167,7 @@ struct RelationshipGraphView: View {
         }
     }
     
-    private var toolbarContent: some ToolbarContent {
+    private func toolbarContent(size: CGSize, proxy: GeometryProxy) -> some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             Button {
                 vm.addNode()
@@ -168,7 +184,7 @@ struct RelationshipGraphView: View {
                     .foregroundColor(vm.isConnectingMode ? .red : .blue)
             }
             Button {
-                fitToScreen()
+                fitToScreen(size: size, proxy: proxy)
             } label: {
                 Image(systemName: "viewfinder")
                     .font(.title)
@@ -177,44 +193,53 @@ struct RelationshipGraphView: View {
         }
     }
     
-    private func fitToScreen() {
+    // 画面居中：计算包围盒->计算比例->计算偏移
+    private func fitToScreen(size: CGSize, proxy: GeometryProxy) {
         let nodes = vm.nodes
         guard !nodes.isEmpty else { return }
 
-        let screenW = UIScreen.main.bounds.width
-        let screenH = UIScreen.main.bounds.height
-
-        let topSafe: CGFloat = 70
-        let padding: CGFloat = 20
-
-        let viewW = screenW - padding * 2
-        let viewH = screenH - topSafe - padding * 2
-
+        // 导航栏安全区
+        let topInset = proxy.safeAreaInsets.top
+        
+        // 获取所有节点的坐标边界
         let xs = nodes.map { $0.position.x }
         let ys = nodes.map { $0.position.y }
-
+        
+        // 增加节点半径补偿（假设半径为 30），防止边缘被切
+        let padding: CGFloat = 30
         guard let minX = xs.min(),
               let maxX = xs.max(),
               let minY = ys.min(),
               let maxY = ys.max() else {
-            return
+                return
         }
+        let finalMinX = minX - padding
+        let finalMaxX = maxX + padding
+        let finalMinY = minY - padding
+        let finalMaxY = maxY + padding
 
-        let contentW = maxX - minX + 1
-        let contentH = maxY - minY + 1
+        // 2. 计算内容的总宽高
+        let contentW = finalMaxX - finalMinX
+        let contentH = finalMaxY - finalMinY
 
-        let s = min(viewW / contentW, viewH / contentH, 1.5)
+        // 3. 计算缩放比例
+        // 预留一些屏幕边距 (比如屏幕宽度的 90%)
+        let scaleX = (size.width * 0.9) / contentW
+        let scaleY = (size.height * 0.9) / contentH
+        let s = min(scaleX, scaleY, 1.5)
 
-        let cx = (minX + maxX) * 0.5
-        let cy = (minY + maxY) * 0.5
+        // 4. 计算偏移量
+        // -minX * s 是把内容的最左边拉到屏幕边缘 0
+        // (size.width - contentW * s) / 2：计算剩余空间并平分，实现水平居中
+        let ox = (size.width - contentW * s) / 2 - finalMinX * s
+        let oy = (size.height - contentH * s) / 2 - finalMinY * s + topInset
 
-        let ox = screenW / 2 - cx * s
-        let oy = topSafe + padding + viewH/2 - cy * s
-
-        canvas.scale = s
-        canvas.offset = CGSize(width: ox, height: oy)
-        canvas.lastOffset = canvas.offset
-        canvas.lastScale = canvas.scale
+        withAnimation(.easeInOut) {
+            canvas.scale = s
+            canvas.offset = CGSize(width: ox, height: oy)
+            canvas.lastScale = s
+            canvas.lastOffset = canvas.offset
+        }
     }
 }
 
