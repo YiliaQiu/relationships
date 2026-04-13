@@ -37,6 +37,8 @@ struct RelationshipGraphView: View {
     @State private var lastDragTime: Date = .distantPast
     private let dragThrottle: TimeInterval = 1 / 60
     
+    @State private var showClearAlert = false
+    
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
@@ -53,6 +55,17 @@ struct RelationshipGraphView: View {
             showEditEdgeLabel: $showEditEdgeLabel, editedEdgeLabel: $editedEdgeLabel,
             selectedEdgeID: $selectedEdgeID
         ))
+        .onDisappear {
+            vm.save()
+        }
+        .alert("确认清空画布", isPresented: $showClearAlert) {
+            Button("取消", role: .cancel) {}
+            Button("清空", role: .destructive) {
+                vm.clearAll()
+            }
+        } message: {
+            Text("删除后无法恢复，确定要清空吗")
+        }
     }
 
     private func mainCanvas(size: CGSize, proxy: GeometryProxy) -> some View {
@@ -169,26 +182,33 @@ struct RelationshipGraphView: View {
     
     private func toolbarContent(size: CGSize, proxy: GeometryProxy) -> some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Button {
-                vm.addNode()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.title)
-                    .foregroundColor(.blue)
-            }
-            Button {
-                vm.isConnectingMode.toggle()
-                vm.firstSelectedNodeID = nil
-            } label: {
-                Text(vm.isConnectingMode ? "退出连线" : "连线")
-                    .foregroundColor(vm.isConnectingMode ? .red : .blue)
-            }
-            Button {
-                fitToScreen(size: size, proxy: proxy)
-            } label: {
-                Image(systemName: "viewfinder")
-                    .font(.title)
-                    .foregroundColor(.blue)
+            HStack(spacing: 4) {
+                Button {
+                    vm.isConnectingMode.toggle()
+                    vm.firstSelectedNodeID = nil
+                } label: {
+                    Text(vm.isConnectingMode ? "退出连线" : "连线")
+                        .foregroundColor(vm.isConnectingMode ? .red : .blue)
+                }
+                Button {
+                    vm.addNode()
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundColor(.blue)
+                }
+                Button {
+                    fitToScreen(size: size, proxy: proxy)
+                } label: {
+                    Image(systemName: "viewfinder")
+                        .foregroundColor(.blue)
+                }
+                
+                Button(role: .destructive) {
+                    showClearAlert = true // 触发弹窗
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
             }
         }
     }

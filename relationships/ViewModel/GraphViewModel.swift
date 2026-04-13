@@ -80,43 +80,36 @@ class GraphViewModel: ObservableObject, Codable {
         let y = CGFloat.random(in: 100...500)
         let newNode = NodeModel(title: newTitle, position: CGPoint(x: x, y: y))
         nodes.append(newNode)
-        save()
     }
     
     func deleteNode(id: UUID) {
         nodes.removeAll { $0.id == id}
         edges.removeAll { $0.from == id || $0.to == id}
-        save()
     }
     
     func updateNodeName(id: UUID, newName: String) {
         guard let index = nodes.firstIndex(where: {$0.id == id}) else { return }
         nodes[index].title = newName
-        save()
     }
     
     func updateNodeColor(id: UUID, newColor: Color) {
         guard let index = nodes.firstIndex(where: {$0.id == id}) else { return }
         nodes[index].color = newColor
-        save()
     }
     
     func updateEdgeLabel(id: UUID, newLabel: String) {
         guard let index = edges.firstIndex(where: {$0.id == id}) else { return }
         edges[index].label = newLabel
-        save()
     }
     
     func connect(from fromID: UUID, to toID: UUID) {
         guard fromID != toID else { return }
         guard !edges.contains(where: { $0.from == fromID && $0.to == toID}) else { return }
         edges.append(EdgeModel(from: fromID, to: toID, label: "连接"))
-        save()
     }
     
     func deleteEdge(id: UUID) {
         edges.removeAll { $0.id == id}
-        save()
     }
     
     func getConnectionPoints(from fromId: UUID, to toId: UUID) -> (CGPoint, CGPoint)? {
@@ -166,6 +159,13 @@ class GraphViewModel: ObservableObject, Codable {
             y: tip.y - arrowLength * (uy * cos(-angle) - ux * sin(-angle))
         )
         return ArrowGeometry(tip: tip, tail: to, left: left, right: right)
+    }
+    
+    func clearAll() {
+        nodes.removeAll()
+        edges.removeAll()
+        firstSelectedNodeID = nil
+        isConnectingMode = false
     }
     
     func save() {
