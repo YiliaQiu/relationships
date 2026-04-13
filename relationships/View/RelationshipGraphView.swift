@@ -55,9 +55,13 @@ struct RelationshipGraphView: View {
             showEditEdgeLabel: $showEditEdgeLabel, editedEdgeLabel: $editedEdgeLabel,
             selectedEdgeID: $selectedEdgeID
         ))
+        .onAppear {
+            vm.saveInitSnapShot()
+        }
         .onDisappear {
             vm.save()
         }
+        .onChange(of: vm.undoHistory.count) { _, _ in }
         .alert("确认清空画布", isPresented: $showClearAlert) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) {
@@ -149,10 +153,12 @@ struct RelationshipGraphView: View {
                 showEdgeMenu = true
             }
         }
+        .id(UUID())
     }
     private var nodeList: some View {
         ForEach($vm.nodes, id: \.id) { $node in
             NodeView(
+                vm: vm,
                 node: $node,
                 onTapNode: {
                     selectedNodeID = node.id
@@ -202,7 +208,13 @@ struct RelationshipGraphView: View {
                     Image(systemName: "viewfinder")
                         .foregroundColor(.blue)
                 }
-                
+                Button {
+                    vm.undo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .disabled(vm.undoHistory.isEmpty)
+                .foregroundColor(vm.undoHistory.isEmpty ? .gray : .blue)
                 Button(role: .destructive) {
                     showClearAlert = true // 触发弹窗
                 } label: {
@@ -364,10 +376,11 @@ struct GlobalAlerts: ViewModifier {
 }
 
 struct NodeView: View {
+    @ObservedObject var vm: GraphViewModel
     @Binding var node: NodeModel
     var onTapNode: () -> Void
     var onDrag: (CGPoint) -> Void
-    
+
     var onTapForConnect: () -> Void
     var isConnectingMode: Bool
     var isFirstSelectedNode: Bool
@@ -394,7 +407,12 @@ struct NodeView: View {
         .highPriorityGesture(
             DragGesture(minimumDistance: 5)
                 .onChanged { value in
+                    vm.isDraggingNode = true
                     onDrag(value.location)
+                }
+                .onEnded { _ in
+                    vm.isDraggingNode = false
+                    vm.finishedDragAndSaveSnapshot()
                 }
         )
     }
@@ -441,9 +459,6 @@ struct ConnectionView: View, Equatable {
                         .background(Color.white.opacity(0.8))
                         .cornerRadius(4)
                         .position(midPoint)
-//                        .onTapGesture {
-//                            onTapForEdgeLabel()
-//                        }
                 }
             }
         }
@@ -493,7 +508,3 @@ struct SystemColorPicker: UIViewControllerRepresentable {
         }
     }
 }
-
-// #Preview {
-//    RelationshipGraphView()
-// }

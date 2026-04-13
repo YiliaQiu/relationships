@@ -24,6 +24,31 @@ class GraphViewModel: ObservableObject, Codable {
     @Published var isConnectingMode = false
     @Published var firstSelectedNodeID: UUID?
     
+    @Published var undoHistory: [UndoSnapshot] = []
+    @Published var isDraggingNode = false
+    struct UndoSnapshot: Codable {
+        let nodes: [NodeModel]
+        let edges: [EdgeModel]
+        
+        init(nodes: [NodeModel], edges: [EdgeModel]) {
+            self.nodes = nodes.map {
+                NodeModel(
+                    id: $0.id,
+                    title: $0.title,
+                    position: $0.position,
+                    color: $0.color
+                )
+            }
+            self.edges = edges.map {
+                EdgeModel(
+                    id: $0.id,
+                    from: $0.from,
+                    to: $0.to,
+                    label: $0.label
+                )
+            }
+        }
+    }
     var nodePositionVersions: [UUID: Int] = [:]
     init() {
         self.nodes = []
@@ -75,6 +100,7 @@ class GraphViewModel: ObservableObject, Codable {
     
     // add new nodes
     func addNode() {
+        saveSnapshot()
         let newTitle = "\(nodes.count + 1)"
         let x = CGFloat.random(in: 80...300)
         let y = CGFloat.random(in: 100...500)
@@ -83,32 +109,38 @@ class GraphViewModel: ObservableObject, Codable {
     }
     
     func deleteNode(id: UUID) {
+        saveSnapshot()
         nodes.removeAll { $0.id == id}
         edges.removeAll { $0.from == id || $0.to == id}
     }
     
     func updateNodeName(id: UUID, newName: String) {
+        saveSnapshot()
         guard let index = nodes.firstIndex(where: {$0.id == id}) else { return }
         nodes[index].title = newName
     }
     
     func updateNodeColor(id: UUID, newColor: Color) {
+        saveSnapshot()
         guard let index = nodes.firstIndex(where: {$0.id == id}) else { return }
         nodes[index].color = newColor
     }
     
     func updateEdgeLabel(id: UUID, newLabel: String) {
+        saveSnapshot()
         guard let index = edges.firstIndex(where: {$0.id == id}) else { return }
         edges[index].label = newLabel
     }
     
     func connect(from fromID: UUID, to toID: UUID) {
+        saveSnapshot()
         guard fromID != toID else { return }
         guard !edges.contains(where: { $0.from == fromID && $0.to == toID}) else { return }
         edges.append(EdgeModel(from: fromID, to: toID, label: "连接"))
     }
     
     func deleteEdge(id: UUID) {
+        saveSnapshot()
         edges.removeAll { $0.id == id}
     }
     
@@ -162,6 +194,7 @@ class GraphViewModel: ObservableObject, Codable {
     }
     
     func clearAll() {
+        saveSnapshot()
         nodes.removeAll()
         edges.removeAll()
         firstSelectedNodeID = nil
@@ -186,5 +219,43 @@ class GraphViewModel: ObservableObject, Codable {
         } catch {
             print("加载失败：\(error)")
         }
+    }
+    
+    func saveInitSnapShot() {
+        guard undoHistory.isEmpty else { return }
+        let snapshot = UndoSnapshot(nodes: nodes, edges: edges)
+        undoHistory.append(snapshot)
+    }
+    
+    func saveSnapshot() {
+        guard !isDraggingNode else { return }
+        let snapshot = UndoSnapshot(nodes: nodes, edges: edges)
+        undoHistory.append(snapshot)
+        // 最多存20步
+        if undoHistory.count > 20 {
+            undoHistory.removeFirst()
+        }
+    }
+    func undo() {
+        guard !undoHistory.isEmpty else {
+            return
+        }
+        let last = undoHistory.removeLast()
+        
+        // 先清空，强制线条回位
+        nodes.removeAll()
+        edges.removeAll()
+        
+        nodes = last.nodes
+        edges = last.edges
+        firstSelectedNodeID = nil
+//        isConnectingMode = false
+        
+        objectWillChange.send() // 强制重绘连线
+    }
+    
+    func finishedDragAndSaveSnapshot() {
+        isDraggingNode = false
+        saveSnapshot()
     }
 }
