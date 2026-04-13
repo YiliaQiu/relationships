@@ -1,0 +1,6 @@
+# Xcode 用户断点配置
+*.xcodeproj/xcuserdata/
+*.xcodeproj/xcshareddata/xcschemes/*.xcscheme
+*.xcbkptlist
+*.xcworkspace
+.DS_Store
