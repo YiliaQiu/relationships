@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-enum GraphCategory: String, CaseIterable, Identifiable {
+enum GraphCategory: String, CaseIterable, Identifiable, Codable {
     case work = "工作"
     case life = "生活"
     case study = "学习"
@@ -30,20 +30,23 @@ enum GraphCategory: String, CaseIterable, Identifiable {
 }
 
 // mainViewList
-struct GraphItem: Identifiable {
-    let id = UUID()
-    let title: String
-    let category: GraphCategory
+struct GraphItem: Identifiable, Codable {
+    var id = UUID()
+    var title: String
+    var category: GraphCategory
+    
+    var nodes: [NodeModel] = []
+    var edges: [EdgeModel] = []
 }
 
 // mainView
 struct ContentView: View {
     // 示例列表数据
     @State private var graphList: [GraphItem] = [
-        GraphItem(title: "人物关系图", category: .life),
-        GraphItem(title: "知识结构图", category: .study),
-        GraphItem(title: "项目流程图", category: .work),
-        GraphItem(title: "自定义关系图", category: .other)
+        GraphItem(title: "人物关系图", category: .life)
+//        GraphItem(title: "知识结构图", category: .study),
+//        GraphItem(title: "项目流程图", category: .work),
+//        GraphItem(title: "自定义关系图", category: .other)
     ]
     
     // 筛选类别
@@ -89,6 +92,13 @@ struct ContentView: View {
     @State private var isSearchActive = false // 控制搜索框是否展开
     @FocusState private var isSearchFocused: Bool // 用于自动弹出键盘
     
+    init() {
+        if let data = UserDefaults.standard.data(forKey: "AllGraphList"),
+           let decoded = try? JSONDecoder().decode([GraphItem].self, from: data) {
+            _graphList = State(initialValue: decoded)
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -118,6 +128,12 @@ struct ContentView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack {
+                        Button("多选", systemImage: "checkmark.circle") {
+//                            TODO
+                        }
+                        Button("查询", systemImage: "magnifyingglass") {
+//                            TODO
+                        }
                         Button("新增", systemImage: "plus") {
                             graphList.append(GraphItem(title: "新关系图\(graphList.count + 1)", category: .other))
                         }
@@ -205,9 +221,15 @@ struct ContentView: View {
         List {
             ForEach(filteredGraphs) { graph in
                 NavigationLink {
-                    RelationshipGraphView(vm: GraphViewModel())
-                        .navigationTitle(graph.title)
-                        .navigationBarTitleDisplayMode(.inline)
+                    RelationshipGraphView(vm: GraphViewModel(nodes: graph.nodes, edges: graph.edges)) { newNodes, newEdges in
+                        if let index = graphList.firstIndex(where: { $0.id == graph.id }) {
+                            graphList[index].nodes = newNodes
+                            graphList[index].edges = newEdges
+                            saveAllToDisk()
+                        }
+                    }
+                    .navigationTitle(graph.title)
+                    .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     HStack(spacing: 15) {
                         // 左侧分类色块
@@ -243,6 +265,11 @@ struct ContentView: View {
         if let index = offsets.first {
             let itemToDelete = filteredGraphs[index]
             graphList.removeAll { $0.id == itemToDelete.id}
+        }
+    }
+    func saveAllToDisk() {
+        if let encoded = try? JSONEncoder().encode(graphList) {
+            UserDefaults.standard.set(encoded, forKey: "AllGraphsList")
         }
     }
 }

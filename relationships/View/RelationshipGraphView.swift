@@ -18,7 +18,8 @@ struct CanvasTransform {
 struct RelationshipGraphView: View {
     //    @StateObject private var vm = GraphViewModel()
     @ObservedObject var vm: GraphViewModel
-    
+    var onSave: (([NodeModel], [EdgeModel]) -> Void)?
+
     @State private var selectedNodeID: UUID?
     @State private var showNodeMenu = false
     @State private var selectedEdgeID: UUID?
@@ -59,7 +60,7 @@ struct RelationshipGraphView: View {
             vm.saveInitSnapShot()
         }
         .onDisappear {
-            vm.save()
+            onSave?(vm.nodes, vm.edges)
         }
         .onChange(of: vm.undoHistory.count) { _, _ in }
         .alert("确认清空画布", isPresented: $showClearAlert) {

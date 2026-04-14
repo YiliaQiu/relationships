@@ -17,15 +17,55 @@ struct ArrowGeometry {
 }
 
 class GraphViewModel: ObservableObject, Codable {
-    private let saveKey = "GraphData"
-    @Published var nodes: [NodeModel] = []
-    @Published var edges: [EdgeModel] = []
+    @Published var nodes: [NodeModel]
+    @Published var edges: [EdgeModel]
     
     @Published var isConnectingMode = false
     @Published var firstSelectedNodeID: UUID?
     
     @Published var undoHistory: [UndoSnapshot] = []
     @Published var isDraggingNode = false
+
+    var nodePositionVersions: [UUID: Int] = [:]
+    
+    init(nodes: [NodeModel] = [], edges: [EdgeModel] = []) {
+        self.nodes = nodes
+        self.edges = edges
+        self.firstSelectedNodeID = nil
+        self.isConnectingMode = false
+        self.isDraggingNode = false
+        self.undoHistory = []
+        self.nodePositionVersions = [:]
+        
+        if nodes.isEmpty {
+            if nodes.isEmpty {
+                let nodeA = NodeModel(title: "A", position: .init(x: 100, y: 120))
+                let nodeB = NodeModel(title: "B", position: .init(x: 260, y: 280))
+                let nodeC = NodeModel(title: "C", position: .init(x: 100, y: 400))
+                self.nodes = [nodeA, nodeB, nodeC]
+                self.edges = [
+                    EdgeModel(from: nodeA.id, to: nodeB.id, label: "母子"),
+                    EdgeModel(from: nodeB.id, to: nodeC.id, label: "CP")
+                ]
+            }
+        }
+    }
+    enum CodingKeys: String, CodingKey {
+        case nodes, edges
+    }
+    
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.nodes = try container.decode([NodeModel].self, forKey: .nodes)
+        self.edges = try container.decode([EdgeModel].self, forKey: .edges)
+        
+        // 不参与codable的属性
+        self.firstSelectedNodeID = nil
+        self.isConnectingMode = false
+        self.isDraggingNode = false
+        self.undoHistory = []
+        self.nodePositionVersions = [:]
+    }
     struct UndoSnapshot: Codable {
         let nodes: [NodeModel]
         let edges: [EdgeModel]
@@ -48,38 +88,6 @@ class GraphViewModel: ObservableObject, Codable {
                 )
             }
         }
-    }
-    var nodePositionVersions: [UUID: Int] = [:]
-    init() {
-        self.nodes = []
-        self.edges = []
-        self.firstSelectedNodeID = nil
-        self.isConnectingMode = false
-        load()
-        if nodes.isEmpty {
-            let nodeA = NodeModel(title: "A", position: .init(x: 100, y: 120))
-            let nodeB = NodeModel(title: "B", position: .init(x: 260, y: 280))
-            let nodeC = NodeModel(title: "C", position: .init(x: 100, y: 400))
-            nodes.append(nodeA)
-            nodes.append(nodeB)
-            nodes.append(nodeC)
-            edges = [
-                EdgeModel(from: nodeA.id, to: nodeB.id, label: "母子"),
-                EdgeModel(from: nodeB.id, to: nodeC.id, label: "CP")
-            ]
-        }
-    }
-    
-    enum CodingKeys: String, CodingKey {
-        case nodes, edges
-    }
-    
-    required init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        nodes = try container.decode([NodeModel].self, forKey: .nodes)
-        edges = try container.decode([EdgeModel].self, forKey: .edges)
-        self.firstSelectedNodeID = nil
-        self.isConnectingMode = false
     }
     
     func encode(to encoder: Encoder) throws {
@@ -199,26 +207,6 @@ class GraphViewModel: ObservableObject, Codable {
         edges.removeAll()
         firstSelectedNodeID = nil
         isConnectingMode = false
-    }
-    
-    func save() {
-        do {
-            let data = try JSONEncoder().encode(self)
-            UserDefaults.standard.set(data, forKey: self.saveKey)
-        } catch {
-            print("保存失败:\(error)")
-        }
-    }
-    
-    func load() {
-        guard let data = UserDefaults.standard.data(forKey: saveKey) else { return }
-        do {
-            let vm = try JSONDecoder().decode(GraphViewModel.self, from: data)
-            self.nodes = vm.nodes
-            self.edges = vm.edges
-        } catch {
-            print("加载失败：\(error)")
-        }
     }
     
     func saveInitSnapShot() {
