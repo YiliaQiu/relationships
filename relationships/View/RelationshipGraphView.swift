@@ -74,47 +74,47 @@ struct RelationshipGraphView: View {
 
     private func mainCanvas(size: CGSize, proxy: GeometryProxy) -> some View {
         ZStack {
-            Color.clear
+            Color(.systemBackground)
                 .contentShape(Rectangle())
-            // 双指缩放：空白区域生效
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            withTransaction(.init(animation: nil)) {
-                                let newScale = canvas.lastScale * value // 当前缩放比例
-                                let zoomFactor = newScale / canvas.scale // 获取缩放变化率
-                                
-                                // "中心补偿": 缩放向中间收拢
-                                let centerX = size.width / 2
-                                let centerY = size.height / 2
-                                
-                                canvas.offset.width -= (zoomFactor - 1) * (centerX - canvas.offset.width)
-                                canvas.offset.height -= (zoomFactor - 1) * (centerY - canvas.offset.height)
-                                
-                                canvas.scale = newScale
-                            }
-                        }
-                        .onEnded { _ in
-                            canvas.lastScale = canvas.scale
-                            canvas.lastOffset = canvas.offset // 缩放过程offset变了，同步更新
-                        }
-                    // 单指拖拽：空白区域拖动页面
-                        .simultaneously(with: DragGesture(minimumDistance: 2)
-                            .onChanged { value in
-                                withTransaction(.init(animation: nil)) {
-                                    canvas.offset = CGSize(
-                                        width: canvas.lastOffset.width + value.translation.width,
-                                        height: canvas.lastOffset.height + value.translation.height
-                                    )
-                                }
-                            }
-                            .onEnded { _ in
-                                canvas.lastOffset = canvas.offset
-                            }
-                        )
-                )
             graphCanvas
         }
+        // 双指缩放：空白区域生效
+        .gesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    withTransaction(.init(animation: nil)) {
+                        let newScale = canvas.lastScale * value // 当前缩放比例
+                        let zoomFactor = newScale / canvas.scale // 获取缩放变化率
+                        
+                        // "中心补偿": 缩放向中间收拢
+                        let centerX = size.width / 2
+                        let centerY = size.height / 2
+                        
+                        canvas.offset.width -= (zoomFactor - 1) * (centerX - canvas.offset.width)
+                        canvas.offset.height -= (zoomFactor - 1) * (centerY - canvas.offset.height)
+                        
+                        canvas.scale = newScale
+                    }
+                }
+                .onEnded { _ in
+                    canvas.lastScale = canvas.scale
+                    canvas.lastOffset = canvas.offset // 缩放过程offset变了，同步更新
+                }
+            // 单指拖拽：空白区域拖动页面
+                .simultaneously(with: DragGesture(minimumDistance: 2)
+                    .onChanged { value in
+                        withTransaction(.init(animation: nil)) {
+                            canvas.offset = CGSize(
+                                width: canvas.lastOffset.width + value.translation.width,
+                                height: canvas.lastOffset.height + value.translation.height
+                            )
+                        }
+                    }
+                    .onEnded { _ in
+                        canvas.lastOffset = canvas.offset
+                    }
+                )
+        )
         .modifier(NodeEdgeDialogs(
             showNodeMenu: $showNodeMenu, showEdgeMenu: $showEdgeMenu,
             selectedNodeID: $selectedNodeID, vm: vm,
@@ -126,7 +126,6 @@ struct RelationshipGraphView: View {
         .toolbar {
             toolbarContent(size: size, proxy: proxy)
         }
-        .background(Color(.systemBackground))
         .ignoresSafeArea()
     }
     
