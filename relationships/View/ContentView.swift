@@ -8,46 +8,16 @@
 import SwiftUI
 import UIKit
 
-enum GraphCategory: String, CaseIterable, Identifiable, Codable {
-    case work = "工作"
-    case life = "生活"
-    case study = "学习"
-    case secret = "私密"
-    case other = "其他"
-    
-    var id: String { self.rawValue }
-    
-    // 为不同分类设置默认颜色
-    var accentColor: Color {
-        switch self {
-        case .life: return .green
-        case .work: return .blue
-        case .secret: return .purple
-        case .study: return .red
-        case .other: return .gray
-        }
-    }
-}
-
-// mainViewList
-struct GraphItem: Identifiable, Codable {
-    var id = UUID()
-    var title: String
-    var category: GraphCategory
-    
-    var nodes: [NodeModel] = []
-    var edges: [EdgeModel] = []
-}
-
+let allGraphsKey = "AllGraphsData"
 // mainView
 struct ContentView: View {
     // 示例列表数据
-    @State private var graphList: [GraphItem] = [
-        GraphItem(title: "人物关系图", category: .life)
-//        GraphItem(title: "知识结构图", category: .study),
-//        GraphItem(title: "项目流程图", category: .work),
-//        GraphItem(title: "自定义关系图", category: .other)
-    ]
+//    @State private var graphList: [GraphItem] = [
+//        GraphItem(title: "人物关系图", category: .life)
+////        GraphItem(title: "知识结构图", category: .study),
+////        GraphItem(title: "项目流程图", category: .work),
+////        GraphItem(title: "自定义关系图", category: .other)
+//    ]
     
     // 筛选类别
     @State private var selectedFilter: GraphCategory?
@@ -92,16 +62,28 @@ struct ContentView: View {
     @State private var isSearchActive = false // 控制搜索框是否展开
     @FocusState private var isSearchFocused: Bool // 用于自动弹出键盘
     
-    init() {
-        if let data = UserDefaults.standard.data(forKey: "AllGraphList"),
+    @State private var graphList: [GraphItem] = {
+        if let data = UserDefaults.standard.data(forKey: allGraphsKey),
            let decoded = try? JSONDecoder().decode([GraphItem].self, from: data) {
-            _graphList = State(initialValue: decoded)
+            return decoded
+        }
+        return []
+    }()
+    func saveAllToDisk() {
+        if graphList.isEmpty {
+            return
+        }
+        if let encoded = try? JSONEncoder().encode(graphList) {
+            UserDefaults.standard.set(encoded, forKey: allGraphsKey)
         }
     }
     
     var body: some View {
         NavigationStack {
             ZStack {
+                Text("当前内存中的图谱数量: \(graphList.count)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
                 Group {
                     if graphList.isEmpty {
                         // 情况 A：数据库完全为空，显示“欢迎与引导”
@@ -249,27 +231,25 @@ struct ContentView: View {
                                     .background(graph.category.accentColor.opacity(0.1))
                                     .foregroundColor(graph.category.accentColor)
                                     .clipShape(Capsule())
-//                                Text("\(graph.nodes.count) 人")
-//                                    .font(.caption2)
-//                                    .foregroundColor(.secondary)
+                                Text("\(graph.nodes.count) 人")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                             }
                         }
                     }
                     .padding(.vertical, 4)
                 }
             }
-            .onDelete(perform: deleteFromFiltered)
+            .onDelete { indexSet in
+                deleteFromFiltered(at: indexSet)
+                saveAllToDisk()
+            }
         }
     }
     func deleteFromFiltered(at offsets: IndexSet) {
-        if let index = offsets.first {
+        offsets.forEach { index in
             let itemToDelete = filteredGraphs[index]
             graphList.removeAll { $0.id == itemToDelete.id}
-        }
-    }
-    func saveAllToDisk() {
-        if let encoded = try? JSONEncoder().encode(graphList) {
-            UserDefaults.standard.set(encoded, forKey: "AllGraphsList")
         }
     }
 }

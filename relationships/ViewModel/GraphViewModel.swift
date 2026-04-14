@@ -36,19 +36,6 @@ class GraphViewModel: ObservableObject, Codable {
         self.isDraggingNode = false
         self.undoHistory = []
         self.nodePositionVersions = [:]
-        
-        if nodes.isEmpty {
-            if nodes.isEmpty {
-                let nodeA = NodeModel(title: "A", position: .init(x: 100, y: 120))
-                let nodeB = NodeModel(title: "B", position: .init(x: 260, y: 280))
-                let nodeC = NodeModel(title: "C", position: .init(x: 100, y: 400))
-                self.nodes = [nodeA, nodeB, nodeC]
-                self.edges = [
-                    EdgeModel(from: nodeA.id, to: nodeB.id, label: "母子"),
-                    EdgeModel(from: nodeB.id, to: nodeC.id, label: "CP")
-                ]
-            }
-        }
     }
     enum CodingKeys: String, CodingKey {
         case nodes, edges

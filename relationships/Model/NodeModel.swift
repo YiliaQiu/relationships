@@ -1,14 +1,13 @@
 //
-//  GraphModels.swift
+//  NodeModel.swift
 //  relationships
 //
-//  Created by QBQ on 2026/4/9.
-//  纯数据结构
-
+//  Created by QBQ on 2026/4/14.
+//
 import SwiftUI
 
 struct NodeModel: Identifiable, Equatable, Codable {
-    let id: UUID
+    var id: UUID
     var title: String
     var position: CGPoint
     var color: Color = .green
@@ -58,27 +57,12 @@ struct NodeModel: Identifiable, Equatable, Codable {
         let components = ColorComponents(red: Double(r), green: Double(g), blue: Double(b), alpha: Double(a))
         try container.encode(components, forKey: .colorComponents)
     }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-    
-}
 
-struct EdgeModel: Identifiable, Equatable, Codable {
-    let id: UUID
-    let from: UUID
-    let to: UUID
-    var label: String
-    
-    init(id: UUID = UUID(), from: UUID, to: UUID, label: String="标签") {
-        self.id = id
-        self.from = from
-        self.to = to
-        self.label = label
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
+    static func == (lhs: NodeModel, rhs: NodeModel) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.title == rhs.title &&
+        lhs.position == rhs.position &&
+        // 简单比较颜色可以使用 UIColor 的 isEqual
+        UIColor(lhs.color).isEqual(UIColor(rhs.color))
     }
 }

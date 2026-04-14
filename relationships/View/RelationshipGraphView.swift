@@ -41,11 +41,9 @@ struct RelationshipGraphView: View {
     @State private var showClearAlert = false
     
     var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                mainCanvas(size: geometry.size, proxy: geometry).onAppear {
-                    fitToScreen(size: geometry.size, proxy: geometry)
-                }
+        GeometryReader { geometry in
+            mainCanvas(size: geometry.size, proxy: geometry).onAppear {
+                fitToScreen(size: geometry.size, proxy: geometry)
             }
         }
         .modifier(GlobalAlerts(
@@ -60,6 +58,7 @@ struct RelationshipGraphView: View {
             vm.saveInitSnapShot()
         }
         .onDisappear {
+            print("详情页正在消失，准备回调数据...")
             onSave?(vm.nodes, vm.edges)
         }
         .onChange(of: vm.undoHistory.count) { _, _ in }
@@ -163,7 +162,6 @@ struct RelationshipGraphView: View {
                 onTapNode: {
                     selectedNodeID = node.id
                     showNodeMenu = true
-                    print("qbq点击节点后，显示菜单", showNodeMenu)
                 },
                 onDrag: { position in
                     guard Date().timeIntervalSince(lastDragTime) >= dragThrottle else { return }
@@ -292,18 +290,15 @@ struct NodeEdgeDialogs: ViewModifier {
         content
             .confirmationDialog("节点操作", isPresented: $showNodeMenu) {
                 Button("✏️ 修改名称") {
-                    print("qbq")
                     guard let id = selectedNodeID, let node = vm.nodes.first(where: {$0.id == id}) else { return }
                     editedName = node.title
                     showEditName = true
                 }
                 Button("🎨 修改颜色") {
                     showColorPicker = true
-                    print("qbq, 显示色盘", showColorPicker)
                 }
                 Button("👤 修改头像") {
                     // TODO
-                    print("qbq, 修改头像")
                 }
                 Button("⚠️ 删除节点", role: .destructive) {
                     showDeleteConfirm = true
@@ -312,7 +307,6 @@ struct NodeEdgeDialogs: ViewModifier {
             }
             .confirmationDialog("连线操作", isPresented: $showEdgeMenu) {
                 Button("✏️ 修改标签") {
-                    print("qbq")
                     guard let id = selectedEdgeID, let edge = vm.edges.first(where: {$0.id == id}) else { return }
                     editedEdgeLabel = edge.label
                     showEditEdgeLabel = true
@@ -397,7 +391,6 @@ struct NodeView: View {
         }
         .position(node.position)
         .onTapGesture {
-            print("qbq点击了节点, 是否为连线模式：", isConnectingMode)
             if isConnectingMode {
                 onTapForConnect()
             } else {
