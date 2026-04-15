@@ -68,7 +68,6 @@ class ContentViewModel: ObservableObject {
             EdgeModel(from: nodeB.id, to: nodeC.id, label: "CP")
         ]
         graphList.append(GraphItem(title: "我的大家庭", category: .life, nodes: nodes, edges: edges))
-        
     }
     
     func copyGraph(_ graph: GraphItem) {
@@ -97,5 +96,29 @@ class ContentViewModel: ObservableObject {
             // 触感反馈，使用时会有非常轻微的震动
             UISelectionFeedbackGenerator().selectionChanged()
         }
+    }
+    // ContentViewModel 内部
+    func updateGraphs(ids: Set<UUID>, title: String? = nil, category: GraphCategory? = nil) {
+        for index in graphList.indices where ids.contains(graphList[index].id) {
+            if let title = title { graphList[index].title = title }
+            if let category = category { graphList[index].category = category }
+        }
+        saveAllToDisk()
+    }
+    
+    func batchDelete(ids: Set<UUID>) {
+        graphList.removeAll { ids.contains($0.id) }
+        saveAllToDisk()
+    }
+    
+    func batchCopy(ids: Set<UUID>) {
+        let toCopy = graphList.filter { ids.contains($0.id) }
+        for item in toCopy {
+            var copy = item
+            copy.id = UUID()
+            copy.title += "副本"
+            graphList.append(copy)
+        }
+        saveAllToDisk()
     }
 }

@@ -9,6 +9,7 @@ import SwiftUI
 import UIKit
 
 // mainView
+// swiftlint:disable:next type_body_length
 struct ContentView: View {
     @StateObject var viewModel = ContentViewModel()
     // 筛选类别
@@ -57,8 +58,27 @@ struct ContentView: View {
     @State private var newGraphTitle = ""
 
     @State private var selectedCategory: GraphCategory = .life
+    
+    // 多选（批量处理）
+    @State private var selectedIDs = Set<UUID>()
+    @State private var showingDeleteConfirm = false
+    @State private var editMode: EditMode = .inactive
+    @State private var newNameText = ""
+    enum BatchEditMode: Identifiable, Equatable {
+        case rename
+        case category
+        case singleEdit(GraphItem)
 
-    @State private var editingGraph: GraphItem?
+        var id: String {
+            switch self {
+            case .rename: return "rename"
+            case .category: return "category"
+            case .singleEdit(let graph): return graph.id.uuidString
+            }
+        }
+    }
+    @State private var activeBatchEdit: BatchEditMode?
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -70,8 +90,12 @@ struct ContentView: View {
             .toolbar {
                 mainToolbar()
             }
+            .sheet(item: $activeBatchEdit) { mode in
+                batchEditSheet(for: mode)
+                 .presentationDetents(mode == .category ? [.medium] : [.height(200)])
+            }
             .sheet(isPresented: $isShowingAddAlert) {
-                AddGraphSheet(isShowingAddAlert: $isShowingAddAlert, graphList: $viewModel.graphList)
+                AddGraphSheet(viewModel: viewModel, isShowingAddAlert: $isShowingAddAlert)
             }
         }
     }
@@ -148,7 +172,7 @@ struct ContentView: View {
         }
     }
     var showAllgraphList: some View {
-        List {
+        List(selection: $selectedIDs) {
             ForEach(viewModel.filteredGraphs) { graph in
                 NavigationLink {
                     RelationshipGraphView(vm: GraphViewModel(nodes: graph.nodes, edges: graph.edges)) { newNodes, newEdges in
@@ -163,6 +187,7 @@ struct ContentView: View {
                 } label: {
                     GraphRowView(graph: graph)
                 }
+                .tag(graph.id)
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
                         viewModel.copyGraph(graph)                        
@@ -171,7 +196,7 @@ struct ContentView: View {
                     }
                     .tint(.blue)
                     Button {
-                        editingGraph = graph // 触发弹窗
+                        activeBatchEdit = .singleEdit(graph) // 触发弹窗
                     } label: {
                         Label("编辑", systemImage: "pencil")
                     }
@@ -183,12 +208,8 @@ struct ContentView: View {
                 UISelectionFeedbackGenerator().selectionChanged()
                 viewModel.saveAllToDisk()
             }
-            .sheet(item: $editingGraph) { graph in
-                EditGraphSheet(graph: graph) { newTitle, newCat in
-                    viewModel.updateGraphInfo(id: graph.id, newTitle: newTitle, newCategory: newCat)
-                }
-            }
         }
+        .environment(\.editMode, $editMode)
     }
 
     var searchView: some View {
@@ -218,6 +239,120 @@ struct ContentView: View {
         .padding(.vertical, 4)
         .background(Color(.systemGray6))
         .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    func batchEditSheet(for mode: BatchEditMode) -> some View {
+        NavigationStack {
+            Group {
+                switch mode {
+                case .rename:
+                    batchRenameSection
+                case .category:
+                    batchCategorySection
+                case .singleEdit(let graph):
+                    singleEditSection(for: graph)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { activeBatchEdit = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        executeSave(for: mode)
+                    }
+                    .disabled(newNameText.isEmpty)
+                }
+            }
+        }
+    }
+    
+    private var batchRenameSection: some View {
+        VStack(spacing: 20) {
+            TextField("输入新名称", text: $newNameText)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal)
+            Text("将对选中的 \(selectedIDs.count) 个项目进行重命名")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+        .padding(.horizontal)
+        .navigationTitle("批量重命名")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private var batchCategorySection: some View {
+        List(GraphCategory.allCases) { category in
+            Button {
+                withAnimation {
+                    viewModel.updateGraphs(ids: selectedIDs, title: nil, category: category)
+                    // 操作完重置状态
+                    finalizeBatchAction()
+                }
+            } label: {
+                HStack {
+                    // 使用你定义的颜色和文字
+                    Circle()
+                        .fill(category.accentColor)
+                        .frame(width: 10, height: 10)
+                    Text(category.rawValue)
+                        .foregroundColor(.primary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+        }
+        .listStyle(.plain)
+        .navigationTitle("修改分类")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private func singleEditSection(for graph: GraphItem) -> some View {
+        Form {
+            TextField("图名称", text: $newNameText)
+            Picker("分类", selection: $selectedCategory) {
+                ForEach(GraphCategory.allCases) { cat in
+                    Text(cat.rawValue).tag(cat)
+                }
+            }
+        }
+        .onAppear {
+            newNameText = graph.title
+            selectedCategory = graph.category
+        }
+        .navigationTitle("编辑图信息")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+    
+    private func executeSave(for mode: BatchEditMode) {
+        withAnimation {
+            switch mode {
+            case .rename:
+                viewModel.updateGraphs(ids: selectedIDs, title: newNameText, category: nil)
+            case .category:
+                // 这种模式通常在 List 点击时就保存了，这里可以留空或处理
+                break
+            case .singleEdit(let graph):
+                // 单个修改：包装成 Set 传给 updateGraphs
+                viewModel.updateGraphs(ids: [graph.id], title: newNameText, category: selectedCategory)
+            }
+            finalizeBatchAction() // 统一关闭并清理
+        }
+    }
+    func finalizeBatchAction() {
+        withAnimation {
+            // 清空选中的 ID
+            selectedIDs.removeAll()
+            // 退出多选模式
+            editMode = .inactive
+            // 清空输入框
+            newNameText = ""
+            activeBatchEdit = nil
+        }
     }
 }
 
@@ -264,21 +399,80 @@ extension ContentView {
         }
     }
     
+    @ViewBuilder
     private var leadingToolbarItems: some View {
-        HStack {
-            if !isSearchActive {
-                filterMenu
+        if editMode == .active && !selectedIDs.isEmpty {
+            HStack(spacing: 20) {
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
+                } label: {
+                    Label("批量删除", systemImage: "trash")
+                }
+                .confirmationDialog(
+                    "确定要删除这 \(selectedIDs.count) 项吗？",
+                    isPresented: $showingDeleteConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("确定删除", role: .destructive) {
+                         viewModel.batchDelete(ids: selectedIDs)
+                         finalizeBatchAction()
+                    }
+                    Button("取消", role: .cancel) { }
+                }
+                
+                Button {
+                    withAnimation {
+                        viewModel.batchCopy(ids: selectedIDs)
+                        selectedIDs.removeAll()
+                        editMode = .inactive
+                    }
+                } label: {
+                    Label("批量拷贝", systemImage: "plus.square.on.square")
+                }
+                
+                Button {
+                    newNameText = ""
+                    activeBatchEdit = .rename
+                } label: {
+                    Label("批量重命名", systemImage: "pencil.and.outline")
+                }
+                
+                Button {
+                    activeBatchEdit = .category
+                } label: {
+                    Label("批量修改类别", systemImage: "folder.badge.gearshape")
+                }
             }
-            appearancePicker // 添加切换按钮（白天/夜间/跟随系统）
+        } else {
+            HStack {
+                if !isSearchActive {
+                    filterMenu
+                }
+                appearancePicker // 添加切换按钮（白天/夜间/跟随系统）
+            }
         }
     }
+    
+    @ViewBuilder
     private var trailingToolbarItems: some View {
         if isSearchActive {
-            AnyView(searchView)
+            searchView
         } else {
-            AnyView(HStack {
-                Button("多选", systemImage: "checkmark.circle") {
-                    //   TODO
+            HStack {
+                Button {
+                    withAnimation {
+                        editMode = (editMode == .inactive ? .active : .inactive)
+                        if editMode == .inactive {
+                            selectedIDs.removeAll()
+                        }
+                    }
+                } label: {
+                    Label(
+                        editMode == .inactive ? "多选" : "取消",
+                        systemImage: editMode == .inactive ? "checklist" : "xmark.circle"
+                    )
+                    // 根据模式自动切换：非激活时用原样，激活（取消）时强制使用填充风格
+                    .symbolVariant(editMode == .inactive ? .none : .fill)
                 }
                 Button(
                     action: {
@@ -313,14 +507,14 @@ extension ContentView {
                 } label: {
                     Image(systemName: "plus")
                 }
-            })
+            }
         }
     }
 }
 
 struct AddGraphSheet: View {
+    @ObservedObject var viewModel = ContentViewModel()
     @Binding var isShowingAddAlert: Bool
-    @Binding var graphList: [GraphItem]
     @State private var newGraphTitle = ""
     @State private var selectedCategory: GraphCategory = .life
     var body: some View {
@@ -343,57 +537,16 @@ struct AddGraphSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
-                        graphList.append(GraphItem(title: newGraphTitle, category: selectedCategory))
+                        let newGraph = GraphItem(title: newGraphTitle, category: selectedCategory)
+                        viewModel.graphList.append(newGraph)
+                        viewModel.saveAllToDisk()
                         isShowingAddAlert = false
                     }
+                    .disabled(newGraphTitle.trimmingCharacters(in: .whitespaces).isEmpty) // 防止创建空名字
                 }
             }
         }
-        .presentationDetents([.medium]) // 半屏显示
-    }
-}
-
-struct EditGraphSheet: View {
-    @Environment(\.dismiss) var dismiss
-    
-    @State private var title: String
-    @State private var category: GraphCategory
-    
-    let onSave: (String, GraphCategory) -> Void
-    
-    init(graph: GraphItem, onSave: @escaping (String, GraphCategory) -> Void) {
-        _title = State(initialValue: graph.title)
-        _category = State(initialValue: graph.category)
-        self.onSave = onSave
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField("图名称", text: $title)
-                Picker("分类", selection: $category) {
-                    ForEach(GraphCategory.allCases) { cat in
-                        Text(cat.rawValue).tag(cat)
-                    }
-                }
-            }
-            .navigationTitle("编辑图信息")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        onSave(title, category)
-                        dismiss() // 完成后关闭当前弹窗
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium]) // 半屏显示
+        .presentationDetents([.height(200)])
     }
 }
 

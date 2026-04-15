@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct GraphItem: Identifiable, Codable {
+struct GraphItem: Identifiable, Codable, Equatable {
     var id = UUID()
     var title: String
     var category: GraphCategory
