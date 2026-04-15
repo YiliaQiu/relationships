@@ -70,4 +70,20 @@ class ContentViewModel: ObservableObject {
         graphList.append(GraphItem(title: "我的大家庭", category: .life, nodes: nodes, edges: edges))
         
     }
+    
+    func copyGraph(_ graph: GraphItem) {
+        var clonedGraph = graph
+        clonedGraph.id = UUID()
+        clonedGraph.title = "\(graph.title) 副本"
+        
+        if let index = graphList.firstIndex(where: { $0.id == graph.id }) {
+            graphList.insert(clonedGraph, at: index + 1)
+        } else {
+            graphList.append(clonedGraph)
+        }
+        
+        saveAllToDisk()
+        // 触感反馈，使用时会有非常轻微的震动
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
 }

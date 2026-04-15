@@ -12,7 +12,6 @@ import UIKit
 struct ContentView: View {
     @StateObject var viewModel = ContentViewModel()
     // 筛选类别
-//    @State private var selectedFilter: GraphCategory?
     @State private var filterCategory: GraphCategory?
     
     // 跟随系统/白天模式/夜间模式
@@ -50,7 +49,6 @@ struct ContentView: View {
     }
     
     // 搜索
-//    @State private var searchText = "" // 搜索文本状态
     @State private var isSearchActive = false // 控制搜索框是否展开
     @FocusState private var isSearchFocused: Bool // 用于自动弹出键盘
     
@@ -164,9 +162,18 @@ struct ContentView: View {
                 } label: {
                     GraphRowView(graph: graph)
                 }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button {
+                        viewModel.copyGraph(graph)                        
+                    } label: {
+                        Label("拷贝", systemImage: "doc.on.doc")
+                    }
+                    .tint(.blue)
+                }
             }
             .onDelete { indexSet in
                 viewModel.deleteFromFiltered(at: indexSet)
+                UISelectionFeedbackGenerator().selectionChanged()
                 viewModel.saveAllToDisk()
             }
         }
