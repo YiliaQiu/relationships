@@ -10,15 +10,8 @@ import UIKit
 
 let allGraphsKey = "AllGraphsData"
 // mainView
+// swiftlint:disable:next type_body_length
 struct ContentView: View {
-    // 示例列表数据
-//    @State private var graphList: [GraphItem] = [
-//        GraphItem(title: "人物关系图", category: .life)
-////        GraphItem(title: "知识结构图", category: .study),
-////        GraphItem(title: "项目流程图", category: .work),
-////        GraphItem(title: "自定义关系图", category: .other)
-//    ]
-    
     // 筛选类别
     @State private var selectedFilter: GraphCategory?
     @State private var filterCategory: GraphCategory?
@@ -62,6 +55,10 @@ struct ContentView: View {
     @State private var isSearchActive = false // 控制搜索框是否展开
     @FocusState private var isSearchFocused: Bool // 用于自动弹出键盘
     
+    // 新增
+    @State private var isShowingAddAlert = false
+    @State private var newGraphTitle = ""
+    
     @State private var graphList: [GraphItem] = {
         if let data = UserDefaults.standard.data(forKey: allGraphsKey),
            let decoded = try? JSONDecoder().decode([GraphItem].self, from: data) {
@@ -77,17 +74,15 @@ struct ContentView: View {
             UserDefaults.standard.set(encoded, forKey: allGraphsKey)
         }
     }
-    
+    @State private var selectedCategory: GraphCategory = .life
+
     var body: some View {
         NavigationStack {
             ZStack {
-                Text("当前内存中的图谱数量: \(graphList.count)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
                 Group {
                     if graphList.isEmpty {
                         // 情况 A：数据库完全为空，显示“欢迎与引导”
-//                        initialGuideView
+                        initialGuideView
                     } else if filteredGraphs.isEmpty {
                         // 情况 B：有数据，但当前筛选的分类下没有数据
                         noResultView
@@ -98,7 +93,8 @@ struct ContentView: View {
                 }
             }
             .preferredColorScheme(selectedScheme) // 白天/夜间系统
-//            .navigationTitle("关系图列表")
+            //            .navigationTitle("关系图列表")
+            .focused($isSearchFocused) // 绑定搜索栏
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     HStack {
@@ -109,18 +105,52 @@ struct ContentView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack {
-                        Button("多选", systemImage: "checkmark.circle") {
-//                            TODO
-                        }
-                        Button("查询", systemImage: "magnifyingglass") {
-//                            TODO
-                        }
-                        Button("新增", systemImage: "plus") {
-                            graphList.append(GraphItem(title: "新关系图\(graphList.count + 1)", category: .other))
+                    if isSearchActive {
+                        searchView
+                    } else {
+                        HStack {
+                            Button("多选", systemImage: "checkmark.circle") {
+                                //   TODO
+                            }
+                            Button(
+                                action: {
+                                    withAnimation(.spring()) {
+                                        isSearchActive = true
+                                        isSearchFocused = true // 自动点亮键盘
+                                    }
+                                },
+                                label: {
+                                    Image(systemName: "magnifyingglass")
+                                }
+                            )
+                            Menu {
+                                Button(
+                                    action: {
+                                        isShowingAddAlert = true
+                                    },
+                                    label: {
+                                        Text("新建")
+                                        Image(systemName: "plus")
+                                    }
+                                )
+                                Button(
+                                    action: {
+//                                    TODO: 导入解析
+//                                    isShowingImportPicker = true
+                                    }, label: {
+                                        Text("导入")
+                                        Image(systemName: "square.and.arrow.down")
+                                    }
+                                )
+                            } label: {
+                                Image(systemName: "plus")
+                            }
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $isShowingAddAlert) {
+                addAlertView // 新建关系图
             }
         }
     }
@@ -143,6 +173,17 @@ struct ContentView: View {
     private func insertSampleData() {
         // 1. 检查是否已经有数据，如果有则不插入
         guard graphList.isEmpty else { return }
+        let nodeA = NodeModel(title: "A", position: .init(x: 100, y: 120))
+        let nodeB = NodeModel(title: "B", position: .init(x: 260, y: 280))
+        let nodeC = NodeModel(title: "C", position: .init(x: 100, y: 400))
+        let nodes = [
+            nodeA, nodeB, nodeC
+        ]
+        let edges = [
+            EdgeModel(from: nodeA.id, to: nodeB.id, label: "母子"),
+            EdgeModel(from: nodeB.id, to: nodeC.id, label: "CP")
+        ]
+        graphList.append(GraphItem(title: "我的大家庭", category: .life, nodes: nodes, edges: edges))
         
     }
     
@@ -251,6 +292,61 @@ struct ContentView: View {
             let itemToDelete = filteredGraphs[index]
             graphList.removeAll { $0.id == itemToDelete.id}
         }
+    }
+    
+    var searchView: some View {
+        // 搜索栏展开状态：显示输入框和取消按钮
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+                .font(.footnote)
+            TextField("搜索...", text: $searchText)
+                .textFieldStyle(.plain)
+                .frame(width: 150) // 限制宽度，防止挤掉加号
+                .focused($isSearchFocused)
+            Button(
+                action: {
+                    withAnimation {
+                        isSearchActive = false
+                        searchText = ""
+                    }
+                },
+                label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            )
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+    var addAlertView: some View {
+        NavigationStack {
+            Form {
+                Section("基本信息") {
+                    TextField("图表名称", text: $newGraphTitle)
+                    Picker("选择分类", selection: $selectedCategory) {
+                        ForEach(GraphCategory.allCases) { cat in
+                            Text(cat.rawValue).tag(cat)
+                        }
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { isShowingAddAlert = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("创建") {
+                        graphList.append(GraphItem(title: newGraphTitle, category: selectedCategory))
+                        isShowingAddAlert = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium]) // 半屏显示
     }
 }
 

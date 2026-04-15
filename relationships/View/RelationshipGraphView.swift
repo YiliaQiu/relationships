@@ -16,7 +16,6 @@ struct CanvasTransform {
 }
 
 struct RelationshipGraphView: View {
-    //    @StateObject private var vm = GraphViewModel()
     @ObservedObject var vm: GraphViewModel
     var onSave: (([NodeModel], [EdgeModel]) -> Void)?
 
