@@ -58,6 +58,7 @@ struct ContentView: View {
 
     @State private var selectedCategory: GraphCategory = .life
 
+    @State private var editingGraph: GraphItem?
     var body: some View {
         NavigationStack {
             ZStack {
@@ -169,12 +170,23 @@ struct ContentView: View {
                         Label("拷贝", systemImage: "doc.on.doc")
                     }
                     .tint(.blue)
+                    Button {
+                        editingGraph = graph // 触发弹窗
+                    } label: {
+                        Label("编辑", systemImage: "pencil")
+                    }
+                    .tint(.orange)
                 }
             }
             .onDelete { indexSet in
                 viewModel.deleteFromFiltered(at: indexSet)
                 UISelectionFeedbackGenerator().selectionChanged()
                 viewModel.saveAllToDisk()
+            }
+            .sheet(item: $editingGraph) { graph in
+                EditGraphSheet(graph: graph) { newTitle, newCat in
+                    viewModel.updateGraphInfo(id: graph.id, newTitle: newTitle, newCategory: newCat)
+                }
             }
         }
     }
@@ -323,6 +335,8 @@ struct AddGraphSheet: View {
                     }
                 }
             }
+            .navigationTitle("新建图信息")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { isShowingAddAlert = false }
@@ -331,6 +345,50 @@ struct AddGraphSheet: View {
                     Button("创建") {
                         graphList.append(GraphItem(title: newGraphTitle, category: selectedCategory))
                         isShowingAddAlert = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium]) // 半屏显示
+    }
+}
+
+struct EditGraphSheet: View {
+    @Environment(\.dismiss) var dismiss
+    
+    @State private var title: String
+    @State private var category: GraphCategory
+    
+    let onSave: (String, GraphCategory) -> Void
+    
+    init(graph: GraphItem, onSave: @escaping (String, GraphCategory) -> Void) {
+        _title = State(initialValue: graph.title)
+        _category = State(initialValue: graph.category)
+        self.onSave = onSave
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("图名称", text: $title)
+                Picker("分类", selection: $category) {
+                    ForEach(GraphCategory.allCases) { cat in
+                        Text(cat.rawValue).tag(cat)
+                    }
+                }
+            }
+            .navigationTitle("编辑图信息")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        onSave(title, category)
+                        dismiss() // 完成后关闭当前弹窗
                     }
                 }
             }

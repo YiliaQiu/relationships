@@ -86,4 +86,16 @@ class ContentViewModel: ObservableObject {
         // 触感反馈，使用时会有非常轻微的震动
         UISelectionFeedbackGenerator().selectionChanged()
     }
+    
+    func updateGraphInfo(id: UUID, newTitle: String, newCategory: GraphCategory) {
+        if let index = graphList.firstIndex(where: { $0.id == id }) {
+            graphList[index].title = newTitle
+            graphList[index].category = newCategory
+            
+            saveAllToDisk()
+
+            // 触感反馈，使用时会有非常轻微的震动
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
 }
