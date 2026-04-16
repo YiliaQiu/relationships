@@ -50,7 +50,7 @@ extension ContentView {
         List(selection: $selectedIDs) {
             ForEach(viewModel.filteredGraphs) { graph in
                 NavigationLink {
-                    RelationshipGraphView(vm: GraphViewModel(nodes: graph.nodes, edges: graph.edges)) { newNodes, newEdges in
+                    GraphView(vm: GraphViewModel(nodes: graph.nodes, edges: graph.edges)) { newNodes, newEdges in
                         if let index = viewModel.graphList.firstIndex(where: { $0.id == graph.id }) {
                             viewModel.graphList[index].nodes = newNodes
                             viewModel.graphList[index].edges = newEdges
