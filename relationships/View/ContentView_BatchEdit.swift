@@ -110,6 +110,7 @@ extension ContentView {
         }
     }
     func finalizeBatchAction() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         withAnimation {
             // 清空选中的 ID
             selectedIDs.removeAll()

@@ -18,6 +18,7 @@ extension ContentView {
                 .textFieldStyle(.plain)
                 .frame(width: 150)
                 .focused($isSearchFocused)
+                .submitLabel(.search) // 键盘回车键文字改成“搜索”
             Button(
                 action: {
                     withAnimation {
@@ -35,5 +36,13 @@ extension ContentView {
         .padding(.vertical, 4)
         .background(Color(.systemGray6))
         .cornerRadius(8)
+    }
+    
+    func dismissSearch() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            isSearchActive = false
+            isSearchFocused = false
+            viewModel.searchText = ""
+        }
     }
 }

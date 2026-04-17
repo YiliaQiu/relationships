@@ -80,7 +80,17 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                
                 mainContentView
+                
+                // 只在搜索激活或键盘弹起时才执行，避免多余的动画
+                if (isSearchActive || isSearchFocused) && viewModel.searchText.isEmpty {
+                    Color.white.opacity(0.001) // 极低透明度，肉眼不可见但可点击
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            dismissSearch()
+                        }
+                }
             }
             .preferredColorScheme(selectedScheme) // 白天/夜间系统
             //            .navigationTitle("关系图列表")
